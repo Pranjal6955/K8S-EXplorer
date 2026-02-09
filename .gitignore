@@ -1,0 +1,138 @@
+# =====================================
+# K8S Graph Explorer - Gitignore
+# =====================================
+
+# =====================================
+# Go Backend
+# =====================================
+# Binaries
+backend/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Vendor directory (if not using vendoring)
+# backend/vendor/
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# =====================================
+# Next.js / Node.js (Dashboard)
+# =====================================
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Next.js
+dashboard/.next/
+dashboard/out/
+
+# Production
+dashboard/build/
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# =====================================
+# Environment & Secrets
+# =====================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+*.pem
+*.key
+secrets/
+
+# Kubernetes secrets and sensitive configs
+k8s/secrets/
+*-secret.yaml
+*-secrets.yaml
+
+# =====================================
+# Docker
+# =====================================
+docker/.env
+docker/data/
+
+# =====================================
+# Neo4j
+# =====================================
+neo4j/data/
+neo4j/logs/
+neo4j/plugins/
+
+# =====================================
+# IDE & Editors
+# =====================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# =====================================
+# OS Files
+# =====================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =====================================
+# Logs
+# =====================================
+logs/
+*.log
+
+# =====================================
+# Temporary Files
+# =====================================
+tmp/
+temp/
+.tmp/
+.temp/
+
+# =====================================
+# Generated Files
+# =====================================
+backend/graph/generated/
+backend/graph/model/models_gen.go
+
+# =====================================
+# Misc
+# =====================================
+.cache/
+dist/

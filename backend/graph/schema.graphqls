@@ -1,0 +1,328 @@
+# GraphQL Schema for K8S Graph Explorer
+# =======================================
+
+# Scalar types
+scalar Time
+scalar Map
+
+# =======================================
+# Node Types
+# =======================================
+
+"""
+NodeType represents the type of a Kubernetes resource node
+"""
+enum NodeType {
+  Pod
+  Service
+  Deployment
+  ReplicaSet
+  ConfigMap
+  Secret
+  PersistentVolumeClaim
+  Namespace
+  Ingress
+  StatefulSet
+  DaemonSet
+  Job
+  CronJob
+}
+
+"""
+Node represents a Kubernetes resource in the graph
+"""
+type Node {
+  """Unique identifier (Kubernetes UID)"""
+  id: ID!
+  """Type of the resource"""
+  type: NodeType!
+  """Name of the resource"""
+  name: String!
+  """Namespace (empty for cluster-scoped resources)"""
+  namespace: String
+  """Kubernetes labels"""
+  labels: Map
+  """Custom properties"""
+  properties: Map
+  """Creation timestamp"""
+  createdAt: Time
+  """Related edges (connections to other nodes)"""
+  edges: [Edge!]
+}
+
+# =======================================
+# Edge Types
+# =======================================
+
+"""
+EdgeType represents the type of relationship between nodes
+"""
+enum EdgeType {
+  OWNS
+  EXPOSES
+  DEPENDS_ON
+  SELECTS
+  MOUNTS
+  USES
+  ROUTES_TO
+}
+
+"""
+Edge represents a relationship between two nodes
+"""
+type Edge {
+  """Unique identifier for the edge"""
+  id: ID!
+  """Type of the relationship"""
+  type: EdgeType!
+  """Source node ID"""
+  sourceId: ID!
+  """Target node ID"""
+  targetId: ID!
+  """Source node (resolved)"""
+  source: Node
+  """Target node (resolved)"""
+  target: Node
+  """Custom properties"""
+  properties: Map
+}
+
+# =======================================
+# Graph Types
+# =======================================
+
+"""
+Topology represents the complete graph structure
+"""
+type Topology {
+  """All nodes in the topology"""
+  nodes: [Node!]!
+  """All edges in the topology"""
+  edges: [Edge!]!
+  """Statistics about the topology"""
+  statistics: TopologyStatistics!
+}
+
+"""
+TopologyStatistics contains summary information about the topology
+"""
+type TopologyStatistics {
+  """Total number of nodes"""
+  totalNodes: Int!
+  """Total number of edges"""
+  totalEdges: Int!
+  """Count of nodes by type"""
+  nodesByType: Map!
+  """Count of edges by type"""
+  edgesByType: Map!
+  """List of namespaces covered"""
+  namespaces: [String!]!
+}
+
+"""
+DependencyGraph represents dependencies for a specific resource
+"""
+type DependencyGraph {
+  """The root resource"""
+  root: Node!
+  """All dependent nodes"""
+  dependencies: [Node!]!
+  """All dependency edges"""
+  edges: [Edge!]!
+  """Depth of the dependency tree"""
+  depth: Int!
+}
+
+# =======================================
+# Input Types
+# =======================================
+
+"""
+TopologyFilter for filtering topology queries
+"""
+input TopologyFilter {
+  """Filter by namespace"""
+  namespace: String
+  """Filter by node types"""
+  nodeTypes: [NodeType!]
+  """Filter by edge types"""
+  edgeTypes: [EdgeType!]
+  """Maximum number of nodes to return"""
+  limit: Int
+}
+
+"""
+DependencyFilter for filtering dependency queries
+"""
+input DependencyFilter {
+  """Direction of dependencies (upstream, downstream, both)"""
+  direction: DependencyDirection
+  """Maximum depth to traverse"""
+  depth: Int
+  """Filter by edge types"""
+  edgeTypes: [EdgeType!]
+}
+
+"""
+DependencyDirection specifies the direction for dependency traversal
+"""
+enum DependencyDirection {
+  UPSTREAM
+  DOWNSTREAM
+  BOTH
+}
+
+"""
+NodeInput for creating/updating nodes
+"""
+input NodeInput {
+  id: ID!
+  type: NodeType!
+  name: String!
+  namespace: String
+  labels: Map
+  properties: Map
+}
+
+"""
+EdgeInput for creating/updating edges
+"""
+input EdgeInput {
+  id: ID
+  type: EdgeType!
+  sourceId: ID!
+  targetId: ID!
+  properties: Map
+}
+
+# =======================================
+# Queries
+# =======================================
+
+type Query {
+  """
+  Get the complete topology of the Kubernetes cluster
+  """
+  getTopology(filter: TopologyFilter): Topology!
+
+  """
+  Get dependencies for a specific resource
+  """
+  getDependencies(resourceId: ID!, filter: DependencyFilter): DependencyGraph!
+
+  """
+  Get a single node by ID
+  """
+  getNode(id: ID!): Node
+
+  """
+  Get nodes by type
+  """
+  getNodesByType(type: NodeType!, namespace: String): [Node!]!
+
+  """
+  Search nodes by name
+  """
+  searchNodes(query: String!, namespace: String, limit: Int): [Node!]!
+
+  """
+  Get all edges for a node
+  """
+  getEdgesForNode(nodeId: ID!): [Edge!]!
+
+  """
+  Find the shortest path between two nodes
+  """
+  findPath(startId: ID!, endId: ID!, maxDepth: Int): Topology
+}
+
+# =======================================
+# Mutations
+# =======================================
+
+type Mutation {
+  """
+  Sync resources from the Kubernetes cluster
+  """
+  syncCluster(namespace: String): SyncResult!
+
+  """
+  Create or update a node
+  """
+  upsertNode(input: NodeInput!): Node!
+
+  """
+  Create or update an edge
+  """
+  upsertEdge(input: EdgeInput!): Edge!
+
+  """
+  Delete a node and its edges
+  """
+  deleteNode(id: ID!): Boolean!
+
+  """
+  Delete an edge
+  """
+  deleteEdge(id: ID!): Boolean!
+
+  """
+  Clear all data in a namespace
+  """
+  clearNamespace(namespace: String!): Boolean!
+}
+
+"""
+SyncResult contains the result of a sync operation
+"""
+type SyncResult {
+  success: Boolean!
+  message: String!
+  nodesCreated: Int!
+  edgesCreated: Int!
+  errors: [String!]
+}
+
+# =======================================
+# Subscriptions
+# =======================================
+
+type Subscription {
+  """
+  Subscribe to topology changes
+  """
+  topologyUpdated(namespace: String): TopologyEvent!
+
+  """
+  Subscribe to node changes
+  """
+  nodeChanged(namespace: String): NodeEvent!
+}
+
+"""
+TopologyEvent represents a change in the topology
+"""
+type TopologyEvent {
+  type: EventType!
+  timestamp: Time!
+  affectedNodes: [Node!]!
+  affectedEdges: [Edge!]!
+}
+
+"""
+NodeEvent represents a change to a single node
+"""
+type NodeEvent {
+  type: EventType!
+  timestamp: Time!
+  node: Node!
+}
+
+"""
+EventType for subscription events
+"""
+enum EventType {
+  CREATED
+  UPDATED
+  DELETED
+}
