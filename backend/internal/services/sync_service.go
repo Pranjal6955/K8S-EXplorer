@@ -142,14 +142,27 @@ func (s *SyncService) SyncAllNamespaces(ctx context.Context) (*SyncResult, error
 		}
 	}
 
-	// Sync resources in each namespace
+	// Sync resources in each namespace concurrently
+	type nsSyncResult struct {
+		result *SyncResult
+		err    error
+	}
+	resChan := make(chan nsSyncResult, len(namespaces))
+
 	for _, ns := range namespaces {
-		nsResult, err := s.SyncNamespace(ctx, ns.Name)
-		if err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("failed to sync namespace %s: %v", ns.Name, err))
-		} else {
-			result.SyncedCount += nsResult.SyncedCount
-			result.Errors = append(result.Errors, nsResult.Errors...)
+		go func(namespaceName string) {
+			nsResult, err := s.SyncNamespace(ctx, namespaceName)
+			resChan <- nsSyncResult{nsResult, err}
+		}(ns.Name)
+	}
+
+	for i := 0; i < len(namespaces); i++ {
+		res := <-resChan
+		if res.err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("failed to sync namespace: %v", res.err))
+		} else if res.result != nil {
+			result.SyncedCount += res.result.SyncedCount
+			result.Errors = append(result.Errors, res.result.Errors...)
 		}
 	}
 

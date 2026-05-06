@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -20,8 +21,9 @@ type Config struct {
 type ServerConfig struct {
 	Port        string
 	Host        string
-	Environment string
-	Debug       bool
+	Environment    string
+	Debug          bool
+	AllowedOrigins []string
 }
 
 // Neo4jConfig holds Neo4j database configuration
@@ -53,8 +55,9 @@ func Load() (*Config, error) {
 		Server: ServerConfig{
 			Port:        getEnv("SERVER_PORT", "8080"),
 			Host:        getEnv("SERVER_HOST", "0.0.0.0"),
-			Environment: getEnv("APP_ENV", "development"),
-			Debug:       getEnvBool("DEBUG", true),
+			Environment:    getEnv("APP_ENV", "development"),
+			Debug:          getEnvBool("DEBUG", true),
+			AllowedOrigins: getEnvSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://127.0.0.1:3000"}),
 		},
 		Neo4j: Neo4jConfig{
 			URI:      getEnv("NEO4J_URI", "bolt://localhost:7687"),
@@ -128,6 +131,21 @@ func getEnvInt(key string, defaultValue int) int {
 			return defaultValue
 		}
 		return intVal
+	}
+	return defaultValue
+}
+
+// getEnvSlice gets a slice of strings from a comma-separated environment variable
+func getEnvSlice(key string, defaultValue []string) []string {
+	if value, exists := os.LookupEnv(key); exists {
+		if value == "" {
+			return []string{}
+		}
+		parts := strings.Split(value, ",")
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+		}
+		return parts
 	}
 	return defaultValue
 }

@@ -19,49 +19,39 @@ git clone https://github.com/yourusername/K8S-Graph-Explorer.git
 cd K8S-Graph-Explorer
 ```
 
-### 2. Start Dependencies with Docker Compose
+### 2. Initialize the Project
+
+The easiest way to set up everything is using the root `Makefile`:
 
 ```bash
-# Copy environment file
-cp .env.example .env
-
-# Start Neo4j
-docker-compose up -d neo4j
-
-# Wait for Neo4j to be ready
-docker-compose logs -f neo4j
+# Initialize environment (.env) and install all dependencies
+make setup
 ```
 
-### 3. Run the Backend
+### 3. Start Dependencies (Neo4j)
 
 ```bash
-cd backend
-
-# Install dependencies
-go mod download
-
-# Generate GraphQL code
-make generate
-
-# Run the server
-make run
+# Start Neo4j in the background
+make up-deps
 ```
 
-The GraphQL Playground will be available at http://localhost:8080
+### 4. Run in Development Mode
 
-### 4. Run the Dashboard
+You can run both backend and dashboard in development mode:
 
 ```bash
-cd dashboard
+# In one terminal, run the backend with hot reload
+make dev-backend
 
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
+# In another terminal, run the dashboard
+make dev-dashboard
 ```
 
-The dashboard will be available at http://localhost:3000
+Alternatively, you can run the entire stack using Docker Compose:
+
+```bash
+make up
+```
 
 ## Project Structure
 

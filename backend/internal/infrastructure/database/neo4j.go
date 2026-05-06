@@ -70,20 +70,31 @@ func newNeo4jClient(cfg config.Neo4jConfig) (*Neo4jClient, error) {
 		return nil, fmt.Errorf("failed to create Neo4j driver: %w", err)
 	}
 
-	// Verify connectivity with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	// Verify connectivity with retries
+	var lastErr error
+	maxRetries := 5
+	retryInterval := 5 * time.Second
 
-	if err := driver.VerifyConnectivity(ctx); err != nil {
-		driver.Close(ctx)
-		return nil, fmt.Errorf("failed to verify Neo4j connectivity: %w", err)
+	for i := 0; i < maxRetries; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		err = driver.VerifyConnectivity(ctx)
+		cancel()
+
+		if err == nil {
+			return &Neo4jClient{
+				driver:   driver,
+				database: cfg.Database,
+				config:   cfg,
+			}, nil
+		}
+
+		lastErr = err
+		fmt.Printf("Attempt %d: Failed to connect to Neo4j at %s. Retrying in %v...\n", i+1, cfg.URI, retryInterval)
+		time.Sleep(retryInterval)
 	}
 
-	return &Neo4jClient{
-		driver:   driver,
-		database: cfg.Database,
-		config:   cfg,
-	}, nil
+	driver.Close(context.Background())
+	return nil, fmt.Errorf("failed to verify Neo4j connectivity after %d attempts: %w", maxRetries, lastErr)
 }
 
 // Close closes the Neo4j driver connection

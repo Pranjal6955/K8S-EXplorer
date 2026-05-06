@@ -48,6 +48,10 @@ make run
 
 # Or run with hot reload
 make dev
+
+# This will start:
+# - Backend (Go with Air) at http://localhost:8080
+# - Dashboard (Next.js) at http://localhost:3000
 ```
 
 ## 📡 API Endpoints
