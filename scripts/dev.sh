@@ -21,6 +21,11 @@ trap cleanup SIGINT SIGTERM
 
 echo -e "${GREEN}Starting K8S Graph Explorer in development mode...${NC}"
 
+# Check if .env files exist, if not, warn the user
+if [ ! -f .env ] || [ ! -f backend/.env ]; then
+    echo -e "${BLUE}Warning: .env files missing. Running 'make setup' might be required.${NC}"
+fi
+
 # Function to find air binary
 find_air() {
     if command -v air >/dev/null 2>&1; then
@@ -41,8 +46,9 @@ if [ -z "$AIR_BIN" ]; then
     exit 1
 fi
 
-# 0. Cleanup Port 8080
-echo -e "${BLUE}Cleaning up port 8080...${NC}"
+# 0. Cleanup Port 8080 and Docker
+echo -e "${BLUE}Cleaning up port 8080 and Docker containers...${NC}"
+docker-compose stop backend 2>/dev/null || true
 fuser -k 8080/tcp 2>/dev/null || true
 
 # 1. Start Backend
