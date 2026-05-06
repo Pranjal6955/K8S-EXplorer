@@ -17,6 +17,7 @@ import (
 	"github.com/K8S-Graph-Explorer/backend/internal/interface/http/router"
 	"github.com/K8S-Graph-Explorer/backend/internal/interface/http/websocket"
 	neo4jrepo "github.com/K8S-Graph-Explorer/backend/internal/repositories/neo4j"
+	"github.com/K8S-Graph-Explorer/backend/internal/services"
 )
 
 func main() {
@@ -57,15 +58,15 @@ func main() {
 	// Initialize WebSocket Hub
 	wsHub := websocket.NewHub()
 	go wsHub.Run()
+	
+	// Initialize repositories
+	resourceRepo := neo4jrepo.NewResourceRepository(neo4jClient)
 
 	// Initialize Kubernetes watcher
 	k8sWatcher, err := watcher.NewWatcher(cfg.Kubernetes, appLogger)
 	if err != nil {
 		appLogger.Warn("Failed to create Kubernetes watcher, real-time updates disabled", "error", err)
 	} else {
-		// Initialize repositories for event processor
-		resourceRepo := neo4jrepo.NewResourceRepository(neo4jClient)
-
 		// Create and start event processor
 		eventProcessor := watcher.NewEventProcessor(k8sWatcher, resourceRepo, wsHub, appLogger, 5)
 		eventProcessor.Start(ctx)
@@ -82,8 +83,22 @@ func main() {
 		appLogger.Info("Kubernetes resource watcher started")
 	}
 
+	// Initialize SyncService
+	syncService := services.NewSyncService(k8sClient, resourceRepo, wsHub)
+
+	// Perform initial sync in background
+	go func() {
+		appLogger.Info("Performing initial cluster synchronization...")
+		res, err := syncService.SyncAllNamespaces(ctx)
+		if err != nil {
+			appLogger.Error("Initial sync failed", "error", err)
+		} else {
+			appLogger.Info("Initial sync completed", "resources", res.SyncedCount)
+		}
+	}()
+
 	// Setup router
-	r := router.NewRouter(cfg, appLogger, neo4jClient, k8sClient, wsHub)
+	r := router.NewRouter(cfg, appLogger, neo4jClient, k8sClient, wsHub, syncService)
 
 	// Create HTTP server
 	srv := &http.Server{

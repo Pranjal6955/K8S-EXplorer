@@ -3,6 +3,7 @@ package graph
 import (
 	"github.com/K8S-Graph-Explorer/backend/internal/interface/http/middleware/auth"
 	"github.com/K8S-Graph-Explorer/backend/internal/repositories/neo4j"
+	"github.com/K8S-Graph-Explorer/backend/internal/services"
 	"github.com/K8S-Graph-Explorer/backend/internal/services/converter"
 )
 
@@ -12,6 +13,7 @@ type Resolver struct {
 	EdgeRepo       *neo4j.EdgeRepository
 	GraphConverter *converter.GraphConverter
 	JWTService     *auth.JWTService
+	SyncService    *services.SyncService
 }
 
 // NewResolver creates a new resolver with dependencies
@@ -20,11 +22,13 @@ func NewResolver(
 	edgeRepo *neo4j.EdgeRepository,
 	graphConverter *converter.GraphConverter,
 	jwtService *auth.JWTService,
+	syncService *services.SyncService,
 ) *Resolver {
 	return &Resolver{
 		NodeRepo:       nodeRepo,
 		EdgeRepo:       edgeRepo,
 		GraphConverter: graphConverter,
 		JWTService:     jwtService,
+		SyncService:    syncService,
 	}
 }

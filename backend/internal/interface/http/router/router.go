@@ -1,16 +1,21 @@
 package router
 
 import (
+	"github.com/K8S-Graph-Explorer/backend/graph"
+	"github.com/K8S-Graph-Explorer/backend/graph/generated"
 	"github.com/K8S-Graph-Explorer/backend/internal/config"
 	"github.com/K8S-Graph-Explorer/backend/internal/infrastructure/database"
 	"github.com/K8S-Graph-Explorer/backend/internal/infrastructure/kubernetes"
 	"github.com/K8S-Graph-Explorer/backend/internal/infrastructure/logger"
 	"github.com/K8S-Graph-Explorer/backend/internal/interface/http/controllers"
 	"github.com/K8S-Graph-Explorer/backend/internal/interface/http/middleware"
+	"github.com/K8S-Graph-Explorer/backend/internal/interface/http/middleware/auth"
 	"github.com/K8S-Graph-Explorer/backend/internal/interface/http/websocket"
 	"github.com/K8S-Graph-Explorer/backend/internal/repositories/neo4j"
 	"github.com/K8S-Graph-Explorer/backend/internal/services"
 	"github.com/K8S-Graph-Explorer/backend/internal/services/converter"
+	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -22,6 +27,7 @@ func NewRouter(
 	neo4jClient *database.Neo4jClient,
 	k8sClient *kubernetes.Client,
 	wsHub *websocket.Hub,
+	syncService *services.SyncService,
 ) *gin.Engine {
 	// Set Gin mode
 	if cfg.IsProduction() {
@@ -48,12 +54,18 @@ func NewRouter(
 	// Initialize repositories
 	resourceRepo := neo4j.NewResourceRepository(neo4jClient)
 	graphRepo := neo4j.NewGraphRepository(neo4jClient)
+	nodeRepo := neo4j.NewNodeRepository(neo4jClient)
+	edgeRepo := neo4j.NewEdgeRepository(neo4jClient)
 
 	// Initialize services
 	resourceService := services.NewResourceService(resourceRepo)
 	graphService := services.NewGraphService(graphRepo)
-	syncService := services.NewSyncService(k8sClient, resourceRepo, wsHub)
 	graphConverter := converter.NewGraphConverter(k8sClient)
+	jwtService := auth.NewJWTService(auth.DefaultJWTConfig())
+
+	// Initialize GraphQL resolver and server
+	resolver := graph.NewResolver(nodeRepo, edgeRepo, graphConverter, jwtService, syncService)
+	gqlServer := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{Resolvers: resolver}))
 
 	// Initialize controllers
 	healthController := controllers.NewHealthController()
@@ -71,6 +83,17 @@ func NewRouter(
 	router.GET("/ws", func(c *gin.Context) {
 		websocket.ServeWs(wsHub, c)
 	})
+
+	// GraphQL routes
+	router.POST("/query", func(c *gin.Context) {
+		gqlServer.ServeHTTP(c.Writer, c.Request)
+	})
+
+	if !cfg.IsProduction() {
+		router.GET("/graphql", func(c *gin.Context) {
+			playground.Handler("GraphQL", "/query").ServeHTTP(c.Writer, c.Request)
+		})
+	}
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")

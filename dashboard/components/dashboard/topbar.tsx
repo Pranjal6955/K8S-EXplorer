@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -162,6 +162,32 @@ export function Topbar({
     edgeCount = 0,
 }: TopbarProps) {
     const [isSearchFocused, setIsSearchFocused] = useState(false)
+    const [mounted, setMounted] = useState(false)
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+
+    if (!mounted) {
+        // Return a simplified version for SSR to prevent hydration mismatch
+        return (
+            <div className="flex h-14 items-center justify-between border-b bg-card px-4">
+                <div className="flex items-center gap-4 flex-1 max-w-xl">
+                    <div className="w-64 h-9 bg-muted animate-pulse rounded-md" />
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-24 h-9 bg-muted animate-pulse rounded-md" />
+                    <div className="w-24 h-9 bg-muted animate-pulse rounded-md" />
+                    <div className="w-24 h-9 bg-muted animate-pulse rounded-md" />
+                    <div className="w-32 h-9 bg-muted animate-pulse rounded-md" />
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+                    <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+                </div>
+            </div>
+        )
+    }
 
     const toggleNodeType = (typeId: string) => {
         if (selectedNodeTypes.includes(typeId)) {

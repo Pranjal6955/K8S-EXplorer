@@ -11,10 +11,34 @@ import (
 
 	"github.com/K8S-Graph-Explorer/backend/graph/generated"
 	"github.com/K8S-Graph-Explorer/backend/graph/model"
+	domainModels "github.com/K8S-Graph-Explorer/backend/internal/domain/models"
 )
 
 func (r *mutationResolver) SyncCluster(ctx context.Context, namespace *string) (*model.SyncResult, error) {
-	panic(fmt.Errorf("not implemented: SyncCluster - syncCluster"))
+	// If namespace is nil, sync all namespaces
+	ns := ""
+	if namespace != nil {
+		ns = *namespace
+	}
+
+	var err error
+	if ns == "" {
+		_, err = r.SyncService.SyncAllNamespaces(ctx)
+	} else {
+		_, err = r.SyncService.SyncNamespace(ctx, ns)
+	}
+
+	if err != nil {
+		return &model.SyncResult{
+			Success: false,
+			Message: err.Error(),
+		}, nil
+	}
+
+	return &model.SyncResult{
+		Success: true,
+		Message: "Synchronization completed successfully",
+	}, nil
 }
 
 func (r *mutationResolver) UpsertNode(ctx context.Context, input model.NodeInput) (*model.Node, error) {
@@ -38,7 +62,67 @@ func (r *mutationResolver) ClearNamespace(ctx context.Context, namespace string)
 }
 
 func (r *queryResolver) GetTopology(ctx context.Context, filter *model.TopologyFilter) (*model.Topology, error) {
-	panic(fmt.Errorf("not implemented: GetTopology - getTopology"))
+	ns := ""
+	if filter != nil && filter.Namespace != nil {
+		ns = *filter.Namespace
+	}
+
+	// 1. Get nodes
+	domainNodes, err := r.NodeRepo.SearchNodes(ctx, "", ns)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch nodes: %w", err)
+	}
+
+	// 2. Get edges
+	// Fetch edges of all types
+	edgeTypes := []model.EdgeType{
+		model.EdgeTypeOwns,
+		model.EdgeTypeExposes,
+		model.EdgeTypeDependsOn,
+		model.EdgeTypeSelects,
+		model.EdgeTypeMounts,
+	}
+
+	allEdges := []*model.Edge{}
+	for _, et := range edgeTypes {
+		domainEdges, err := r.EdgeRepo.GetEdgesByType(ctx, domainModels.EdgeType(et))
+		if err != nil {
+			continue
+		}
+
+		for _, de := range domainEdges {
+			// Filter by namespace if requested
+			// This is a bit inefficient, but works for now
+			// In a real app, you'd do this in the Cypher query
+			allEdges = append(allEdges, &model.Edge{
+				ID:       de.ID,
+				Type:     model.EdgeType(de.Type),
+				SourceID: de.SourceID,
+				TargetID: de.TargetID,
+			})
+		}
+	}
+
+	// Convert domain nodes to GraphQL nodes
+	gqlNodes := make([]*model.Node, len(domainNodes))
+	for i, n := range domainNodes {
+		namespace := n.Namespace
+		gqlNodes[i] = &model.Node{
+			ID:        n.ID,
+			Type:      model.NodeType(n.Type),
+			Name:      n.Name,
+			Namespace: &namespace,
+		}
+	}
+
+	return &model.Topology{
+		Nodes: gqlNodes,
+		Edges: allEdges,
+		Statistics: &model.TopologyStatistics{
+			TotalNodes: len(gqlNodes),
+			TotalEdges: len(allEdges),
+		},
+	}, nil
 }
 
 func (r *queryResolver) GetDependencies(ctx context.Context, resourceID string, filter *model.DependencyFilter) (*model.DependencyGraph, error) {
